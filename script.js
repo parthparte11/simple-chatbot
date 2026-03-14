@@ -2,7 +2,7 @@
 // API CONFIGURATION - ADD YOUR GEMINI API KEY HERE
 // ============================================
 
-const GEMINI_API_KEY = 'AIzaSyC7gbuADJztSxyTU_lXfMDXmoPuxqEILqU'; // Your key
+const GEMINI_API_KEY = 'AIzaSyDZYI8UU_eTNdFsgRroQOqP-XBaRquDq14'; // Your key
 
 // Available Gemini Models (2026)
 const GEMINI_MODELS = {
