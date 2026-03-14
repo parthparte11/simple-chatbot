@@ -2,7 +2,7 @@
 // CLOUDFLARE WORKER PROXY URL - YOUR SECURE ENDPOINT
 // ============================================
 
-const PROXY_URL = 'https://gemini-proxy.parthparte217.workers.dev'; // Replace with your actual Cloudflare Worker URL
+const PROXY_URL = 'https://gemini-chat-proxy.parthparte217.workers.dev/'; // Replace with your actual Cloudflare Worker URL
 
 // ============================================
 // SYSTEM PROMPT
