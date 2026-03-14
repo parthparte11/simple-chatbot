@@ -161,19 +161,114 @@ function updateApiStats(message, status) {
 // API CALL THROUGH PROXY
 // ============================================
 
+// ============================================
+// IMPROVED API CALL FUNCTION
+// ============================================
+
 async function callGeminiAPI(userMessage) {
-  const response = await fetch('https://gemini-chat-proxy.parthparte217.workers.dev/', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{
+    // Rate limiting
+    const now = Date.now();
+    if (now - lastRequestTime < MIN_REQUEST_INTERVAL) {
+        await new Promise(resolve => setTimeout(resolve, MIN_REQUEST_INTERVAL - (now - lastRequestTime)));
+    }
+    
+    const startTime = Date.now();
+    
+    // Add user message to history
+    const updatedHistory = [...conversationHistory, {
+        role: "user",
         parts: [{ text: userMessage }]
-      }]
-    })
-  });
-  
-  const data = await response.json();
-  return data.candidates[0].content.parts[0].text;
+    }];
+
+    try {
+        console.log('Sending request to proxy with message:', userMessage);
+        
+        const response = await fetch(PROXY_URL, {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                contents: updatedHistory,
+                generationConfig: {
+                    temperature: 0.9,
+                    maxOutputTokens: 800,
+                    topP: 0.95,
+                    topK: 40
+                }
+            })
+        });
+
+        API.latency = Date.now() - startTime;
+        lastRequestTime = Date.now();
+
+        // Log the response status
+        console.log('Proxy response status:', response.status);
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Proxy error response:', errorText);
+            throw new Error(`Proxy returned ${response.status}: ${errorText}`);
+        }
+
+        const data = await response.json();
+        console.log('Proxy response data:', data);
+
+        // Check for API errors
+        if (data.error) {
+            throw new Error(data.error.message || 'API Error');
+        }
+
+        // Extract the response text - handle different response formats
+        let botResponse = '';
+        
+        if (data.candidates && data.candidates.length > 0) {
+            // Standard Gemini format
+            if (data.candidates[0].content && data.candidates[0].content.parts) {
+                botResponse = data.candidates[0].content.parts[0].text || '';
+            } else if (data.candidates[0].output) {
+                // Alternative format
+                botResponse = data.candidates[0].output;
+            }
+        } else if (data.choices && data.choices.length > 0) {
+            // OpenAI format (if you ever switch)
+            botResponse = data.choices[0].message?.content || data.choices[0].text;
+        } else if (data.response) {
+            // Another possible format
+            botResponse = data.response;
+        }
+
+        if (!botResponse) {
+            console.error('Unexpected response structure:', data);
+            throw new Error('Could not extract response from API');
+        }
+
+        // Update conversation history
+        conversationHistory = updatedHistory;
+        conversationHistory.push({
+            role: "model",
+            parts: [{ text: botResponse }]
+        });
+
+        // Keep conversation history manageable
+        if (conversationHistory.length > 20) {
+            conversationHistory = [
+                conversationHistory[0], // Keep system prompt
+                conversationHistory[1], // Keep first response
+                ...conversationHistory.slice(-16) // Keep last 8 exchanges
+            ];
+        }
+
+        API.status = 'online';
+        updateApiStatus();
+        return botResponse;
+
+    } catch (error) {
+        console.error('Error in callGeminiAPI:', error);
+        API.status = 'degraded';
+        updateApiStatus();
+        throw error;
+    }
 }
 
 // ============================================
@@ -278,6 +373,14 @@ function closeApiModal() {
     document.getElementById('apiModal').style.display = 'none';
 }
 
+// ============================================
+// IMPROVED SEND MESSAGE FUNCTION
+// ============================================
+
+// ============================================
+// IMPROVED SEND MESSAGE FUNCTION
+// ============================================
+
 async function sendMessage() {
     const userInput = document.getElementById('userInput');
     const message = userInput.value.trim();
@@ -292,19 +395,29 @@ async function sendMessage() {
     document.getElementById('typingIndicator').style.display = 'block';
     
     try {
+        console.log('Sending message:', message);
         const botResponse = await callGeminiAPI(message);
+        console.log('Received response:', botResponse);
         
         document.getElementById('typingIndicator').style.display = 'none';
         addMessage(botResponse, 'bot');
         
     } catch (error) {
-        console.error('API Error:', error);
+        console.error('Send message error:', error);
         
         document.getElementById('typingIndicator').style.display = 'none';
         
         let errorMessage = '⚠️ **Error**\n\n';
-        errorMessage += 'Could not connect to the AI service. Please try again.\n\n';
-        errorMessage += 'If this persists, the proxy might be temporarily unavailable.';
+        
+        if (error.message.includes('401') || error.message.includes('API key')) {
+            errorMessage += 'API key issue. Please check your Cloudflare worker secret.';
+        } else if (error.message.includes('429')) {
+            errorMessage += 'Rate limit exceeded. Please wait a moment.';
+        } else if (error.message.includes('503') || error.message.includes('502')) {
+            errorMessage += 'Gemini API is temporarily unavailable. Please try again.';
+        } else {
+            errorMessage += `Something went wrong: ${error.message}`;
+        }
         
         addMessage(errorMessage, 'bot');
     }
