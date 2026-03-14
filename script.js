@@ -4,7 +4,7 @@
 
 // IMPORTANT: Replace with your actual Gemini API key
 // Get one from: https://aistudio.google.com/app/apikey
-const GEMINI_API_KEY = 'AIzaSyDZYI8UU_eTNdFsgRroQOqP-XBaRquDq14'; // Change this to your real key
+const GEMINI_API_KEY = 'YOUR_GEMINI_API_KEY'; // Change this to your real key
 
 // Available Gemini Models
 const GEMINI_MODELS = {
