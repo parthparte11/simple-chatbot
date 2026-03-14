@@ -162,86 +162,18 @@ function updateApiStats(message, status) {
 // ============================================
 
 async function callGeminiAPI(userMessage) {
-    // Rate limiting
-    const now = Date.now();
-    if (now - lastRequestTime < MIN_REQUEST_INTERVAL) {
-        await new Promise(resolve => setTimeout(resolve, MIN_REQUEST_INTERVAL - (now - lastRequestTime)));
-    }
-    
-    const startTime = Date.now();
-    
-    // Add user message to history
-    const updatedHistory = [...conversationHistory, {
-        role: "user",
+  const response = await fetch('https://gemini-chat-proxy.parthparte217.workers.dev/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{
         parts: [{ text: userMessage }]
-    }];
-
-    try {
-        console.log('Sending request to proxy...');
-        
-        const response = await fetch(PROXY_URL, {
-            method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                contents: updatedHistory,
-                generationConfig: {
-                    temperature: 0.9,
-                    maxOutputTokens: 800,
-                    topP: 0.95,
-                    topK: 40
-                }
-            })
-        });
-
-        API.latency = Date.now() - startTime;
-        lastRequestTime = Date.now();
-
-        if (response.ok) {
-            const data = await response.json();
-            
-            if (data.candidates && data.candidates.length > 0) {
-                if (data.candidates[0].finishReason === 'SAFETY') {
-                    console.log('Response blocked by safety filters');
-                    return "I apologize, but I couldn't generate a response due to safety guidelines. Could you please rephrase your question?";
-                }
-
-                const botResponse = data.candidates[0].content.parts[0].text;
-
-                // Update conversation history
-                conversationHistory = updatedHistory;
-                conversationHistory.push({
-                    role: "model",
-                    parts: [{ text: botResponse }]
-                });
-
-                // Keep conversation history manageable
-                if (conversationHistory.length > 20) {
-                    conversationHistory = [
-                        conversationHistory[0], // Keep system prompt
-                        conversationHistory[1], // Keep first response
-                        ...conversationHistory.slice(-16) // Keep last 8 exchanges
-                    ];
-                }
-
-                API.status = 'online';
-                updateApiStatus();
-                return botResponse;
-            } else {
-                throw new Error('No response from API');
-            }
-        } else {
-            const errorData = await response.json();
-            console.error('Proxy error:', errorData);
-            throw new Error(errorData.error || 'Proxy request failed');
-        }
-    } catch (error) {
-        console.error('Error calling proxy:', error);
-        API.status = 'degraded';
-        updateApiStatus();
-        throw error;
-    }
+      }]
+    })
+  });
+  
+  const data = await response.json();
+  return data.candidates[0].content.parts[0].text;
 }
 
 // ============================================
