@@ -2,47 +2,48 @@
 // API CONFIGURATION - ADD YOUR GEMINI API KEY HERE
 // ============================================
 
-const API_KEY = process.env.GEMINI_API_KEY;
+// IMPORTANT: Replace with your actual Gemini API key
+// Get one from: https://aistudio.google.com/app/apikey
+const GEMINI_API_KEY = 'YOUR_GEMINI_API_KEY'; // Change this to your real key
 
-// Available Gemini Models (2026)
+// Available Gemini Models
 const GEMINI_MODELS = {
-    FLASH_3: 'gemini-3-flash-preview',        // Fast, efficient for chat
-    PRO_3: 'gemini-3.1-pro-preview',          // Most capable reasoning
-    FLASH_25: 'gemini-2.5-flash',              // Balanced performance
+    FLASH: 'gemini-1.5-flash',           // Fast, efficient for chat
+    PRO: 'gemini-1.5-pro',               // Most capable reasoning
+    FLASH_8B: 'gemini-1.5-flash-8b'      // Smallest, fastest
 };
 
 // API Configuration
 const API = {
-    name: 'Gemini Flash',
+    name: 'Gemini',
     endpoint: 'https://generativelanguage.googleapis.com/v1beta/models',
     models: [
-        GEMINI_MODELS.FLASH_3,      // Try Flash 3 first (fastest)
-        GEMINI_MODELS.PRO_3,        // Then Pro 3 (most capable)
-        GEMINI_MODELS.FLASH_25,      // Then Flash 2.5 (stable)
+        GEMINI_MODELS.FLASH,      // Try Flash first (fastest)
+        GEMINI_MODELS.PRO,        // Then Pro (most capable)
+        GEMINI_MODELS.FLASH_8B    // Then Flash-8B (fallback)
     ],
     currentModelIndex: 0,
-    status: 'online',
+    status: 'offline',
     latency: 0
 };
 
 // ============================================
-// IMPROVED SYSTEM PROMPT FOR BETTER RESPONSES
+// SYSTEM PROMPT
 // ============================================
 
 const SYSTEM_PROMPT = `You are a helpful, friendly, and knowledgeable AI assistant. Follow these guidelines:
 
-1. **Be conversational and natural** - Write like you're talking to a friend
-2. **Provide detailed, helpful responses** - Don't be too brief unless asked
-3. **Use emojis occasionally** 😊 to make conversations engaging
-4. **Ask clarifying questions** when needed
-5. **Format responses nicely** - Use bullet points for lists, bold for emphasis
-6. **Be honest** - If you don't know something, say so
-7. **Stay on topic** but be willing to explore related subjects
-8. **Adapt to the user's tone** - Match their formality level
+1. Be conversational and natural - Write like you're talking to a friend
+2. Provide detailed, helpful responses - Don't be too brief unless asked
+3. Use emojis occasionally to make conversations engaging
+4. Ask clarifying questions when needed
+5. Format responses nicely - Use bullet points for lists
+6. Be honest - If you don't know something, say so
+7. Stay on topic but be willing to explore related subjects
 
 Remember: You're here to have meaningful conversations and provide real value!`;
 
-// Conversation history with better system prompt
+// Conversation history
 let conversationHistory = [
     {
         role: "user",
@@ -50,7 +51,7 @@ let conversationHistory = [
     },
     {
         role: "model",
-        parts: [{ text: "Hi there! 👋 I'm your friendly AI assistant, and I'm really excited to chat with you! I'll do my best to provide helpful, detailed responses and make our conversation enjoyable. What's on your mind today? I'm here to help with questions, creative tasks, analysis, or just to have a interesting conversation! 😊" }]
+        parts: [{ text: "Hi there! 👋 I'm your friendly AI assistant! I'm here to help with questions, creative tasks, analysis, or just to have an interesting conversation. What's on your mind today? 😊" }]
     }
 ];
 
@@ -81,6 +82,12 @@ document.addEventListener('DOMContentLoaded', function() {
     } else {
         // Test the API connection
         setTimeout(testAPIConnection, 1000);
+        // Enable start button
+        if (startChatBtn) {
+            startChatBtn.disabled = false;
+            startChatBtn.style.opacity = '1';
+            startChatBtn.style.cursor = 'pointer';
+        }
     }
 
     // Event Listeners
@@ -129,31 +136,63 @@ async function testAPIConnection() {
     console.log('🔍 Testing API connection...');
     
     try {
-        const listResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${GEMINI_API_KEY}`);
-        if (listResponse.ok) {
-            const data = await listResponse.json();
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${GEMINI_API_KEY}`);
+        if (response.ok) {
+            const data = await response.json();
             console.log('✅ API connected successfully');
-            updateApiStatus('online');
+            
+            // Filter for available Gemini models
+            const availableModels = data.models
+                .filter(model => model.name.includes('gemini'))
+                .map(model => model.name.replace('models/', ''));
+            
+            console.log('📋 Available models:', availableModels);
+            
+            // Update API models with actually available ones
+            if (availableModels.length > 0) {
+                API.models = availableModels;
+            }
+            
+            API.status = 'online';
+            updateApiStatus();
+            updateApiStats('✅ Connected', 'online');
         } else {
-            console.warn('⚠️ API connection issue');
-            updateApiStatus('degraded');
+            console.warn('⚠️ API connection issue:', response.status);
+            API.status = 'degraded';
+            updateApiStatus();
+            updateApiStats('⚠️ Connection Issue', 'degraded');
         }
     } catch (error) {
         console.error('❌ API connection failed:', error);
-        updateApiStatus('offline');
+        API.status = 'offline';
+        updateApiStatus();
+        updateApiStats('❌ Disconnected', 'offline');
     }
+}
+
+function updateApiStats(message, status) {
+    const statsContainer = document.getElementById('apiStats');
+    if (!statsContainer) return;
+    
+    statsContainer.innerHTML = `
+        <div class="stat-card ${status}">
+            <h4>API Status</h4>
+            <div class="status">${message}</div>
+            <div class="latency">⏱️ ${API.latency}ms</div>
+        </div>
+    `;
 }
 
 function showApiKeyWarning() {
     const statsContainer = document.getElementById('apiStats');
     if (statsContainer) {
         statsContainer.innerHTML = `
-            <div class="stat-card offline" style="background: rgba(239, 68, 68, 0.2); border-left: 4px solid #ef4444;">
+            <div class="stat-card offline">
                 <h4>🔑 API Key Required</h4>
                 <div class="status">Please add your Gemini API key</div>
-                <div class="latency">1. Go to: aistudio.google.com/apikey</div>
-                <div class="latency">2. Create an API key</div>
-                <div class="latency">3. Add it to script.js</div>
+                <div class="latency">1. Get a key at: aistudio.google.com/apikey</div>
+                <div class="latency">2. Edit script.js</div>
+                <div class="latency">3. Replace YOUR_GEMINI_API_KEY</div>
             </div>
         `;
     }
@@ -168,7 +207,7 @@ function showApiKeyWarning() {
 }
 
 // ============================================
-// IMPROVED API CALL WITH BETTER PARAMETERS
+// API CALL
 // ============================================
 
 async function callGeminiAPI(userMessage) {
@@ -181,10 +220,10 @@ async function callGeminiAPI(userMessage) {
     const startTime = Date.now();
     
     // Add user message to history
-    conversationHistory.push({
+    const updatedHistory = [...conversationHistory, {
         role: "user",
         parts: [{ text: userMessage }]
-    });
+    }];
 
     // Try each model in sequence
     for (let attempt = 0; attempt < API.models.length; attempt++) {
@@ -199,13 +238,12 @@ async function callGeminiAPI(userMessage) {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    contents: conversationHistory,
+                    contents: updatedHistory,
                     generationConfig: {
-                        temperature: 0.9,           // Increased for more creativity
-                        maxOutputTokens: 800,        // Increased for longer responses
-                        topP: 0.95,                  // Higher for more diverse responses
-                        topK: 40,
-                        candidateCount: 1
+                        temperature: 0.9,
+                        maxOutputTokens: 800,
+                        topP: 0.95,
+                        topK: 40
                     },
                     safetySettings: [
                         {
@@ -242,23 +280,25 @@ async function callGeminiAPI(userMessage) {
 
                     const botResponse = data.candidates[0].content.parts[0].text;
 
-                    // Add bot response to history
+                    // Update conversation history
+                    conversationHistory = updatedHistory;
                     conversationHistory.push({
                         role: "model",
                         parts: [{ text: botResponse }]
                     });
 
-                    // Keep conversation history manageable (last 15 exchanges)
-                    if (conversationHistory.length > 32) {
+                    // Keep conversation history manageable
+                    if (conversationHistory.length > 20) {
                         conversationHistory = [
                             conversationHistory[0], // Keep system prompt
                             conversationHistory[1], // Keep first response
-                            ...conversationHistory.slice(-28) // Keep last 14 exchanges
+                            ...conversationHistory.slice(-16) // Keep last 8 exchanges
                         ];
                     }
 
                     API.status = 'online';
                     API.currentModelIndex = attempt;
+                    updateApiStatus();
                     return botResponse;
                 }
             } else {
@@ -266,7 +306,7 @@ async function callGeminiAPI(userMessage) {
                 console.log(`Model ${currentModel} failed:`, errorData.error?.message || response.status);
                 
                 if (attempt === API.models.length - 1) {
-                    throw new Error(`All models failed. Last error: ${errorData.error?.message || 'Unknown error'}`);
+                    throw new Error(errorData.error?.message || 'All models failed');
                 }
                 
                 await new Promise(resolve => setTimeout(resolve, 500));
@@ -275,7 +315,7 @@ async function callGeminiAPI(userMessage) {
             console.log(`Error with model ${currentModel}:`, error.message);
             
             if (attempt === API.models.length - 1) {
-                throw new Error('All available models failed. Please check your API key and internet connection.');
+                throw error;
             }
             
             await new Promise(resolve => setTimeout(resolve, 500));
@@ -289,19 +329,15 @@ async function callGeminiAPI(userMessage) {
 // API STATUS
 // ============================================
 
-function updateApiStatus(status = null) {
+function updateApiStatus() {
     const statusElement = document.getElementById('activeApiStatus');
     if (!statusElement) return;
-    
-    if (status) {
-        API.status = status;
-    }
     
     if (!GEMINI_API_KEY || GEMINI_API_KEY === 'YOUR_GEMINI_API_KEY') {
         statusElement.innerHTML = '🔴 No API Key';
         statusElement.style.background = '#ef4444';
     } else if (API.status === 'online') {
-        statusElement.innerHTML = `🟢 Gemini (${API.latency}ms)`;
+        statusElement.innerHTML = `🟢 Online (${API.latency}ms)`;
         statusElement.style.background = '#10b981';
     } else if (API.status === 'degraded') {
         statusElement.innerHTML = '🟡 Connection Issue';
@@ -329,7 +365,7 @@ function goHome() {
 }
 
 function clearChat() {
-    // Reset conversation history but keep improved system prompt
+    // Reset conversation history
     conversationHistory = [
         {
             role: "user",
@@ -337,7 +373,7 @@ function clearChat() {
         },
         {
             role: "model",
-            parts: [{ text: "Hi there! 👋 I'm your friendly AI assistant, and I'm really excited to chat with you! I'll do my best to provide helpful, detailed responses and make our conversation enjoyable. What's on your mind today? I'm here to help with questions, creative tasks, analysis, or just to have a interesting conversation! 😊" }]
+            parts: [{ text: "Hi there! 👋 I'm your friendly AI assistant! What would you like to chat about today? 😊" }]
         }
     ];
     
@@ -345,7 +381,7 @@ function clearChat() {
     chatMessages.innerHTML = `
         <div class="message bot">
             <div class="message-content">
-                👋 Chat cleared! I'm ready for our new conversation. What would you like to talk about? I'm here to help with detailed answers and engaging discussions! 😊
+                👋 Chat cleared! I'm ready for our new conversation. What would you like to talk about?
             </div>
             <div class="timestamp">Just now</div>
         </div>
@@ -361,10 +397,18 @@ function showApiStatus() {
     const statusText = !isKeyValid ? 'No API Key' : API.status === 'online' ? 'Online' : 'Issues Detected';
     const currentModel = API.models[API.currentModelIndex] || 'None';
     
+    let modelsList = '';
+    API.models.forEach((model, index) => {
+        const isCurrent = index === API.currentModelIndex;
+        modelsList += `<div style="margin: 5px 0; padding: 5px; background: ${isCurrent ? '#e8f0fe' : 'transparent'}; border-radius: 5px;">
+            ${isCurrent ? '➡️ ' : ''}${model} ${isCurrent ? '(active)' : ''}
+        </div>`;
+    });
+    
     detailsList.innerHTML = `
         <div style="padding: 15px;">
             <div style="margin-bottom: 20px; padding: 15px; background: #f5f5f5; border-radius: 10px;">
-                <h3 style="margin-bottom: 10px; color: #333;">🤖 Google Gemini API</h3>
+                <h3 style="margin-bottom: 10px;">🤖 Google Gemini API</h3>
                 <p><strong>Status:</strong> <span style="color: ${statusColor};">${statusText}</span></p>
                 <p><strong>Latency:</strong> ${API.latency}ms</p>
                 <p><strong>Active Model:</strong> ${currentModel}</p>
@@ -372,20 +416,16 @@ function showApiStatus() {
             </div>
             
             <div style="margin-bottom: 20px;">
-                <h4 style="margin-bottom: 10px; color: #333;">⚙️ Current Settings:</h4>
-                <ul style="list-style: none; padding: 0;">
-                    <li style="margin-bottom: 5px;">✓ Temperature: 0.9 (More creative)</li>
-                    <li style="margin-bottom: 5px;">✓ Max Tokens: 800 (Longer responses)</li>
-                    <li style="margin-bottom: 5px;">✓ Top P: 0.95 (Diverse responses)</li>
-                </ul>
+                <h4 style="margin-bottom: 10px;">🔄 Available Models:</h4>
+                ${modelsList}
             </div>
             
-            <div>
-                <h4 style="margin-bottom: 10px; color: #333;">📝 Tips for Better Responses:</h4>
+            <div style="margin-bottom: 20px;">
+                <h4 style="margin-bottom: 10px;">⚙️ Settings:</h4>
                 <ul style="list-style: none; padding: 0;">
-                    <li style="margin-bottom: 8px;">• Ask detailed questions</li>
-                    <li style="margin-bottom: 8px;">• Specify if you want longer answers</li>
-                    <li style="margin-bottom: 8px;">• The more context, the better!</li>
+                    <li>✓ Temperature: 0.9 (Creative)</li>
+                    <li>✓ Max Tokens: 800 (Long responses)</li>
+                    <li>✓ Rate Limit: 1 second between requests</li>
                 </ul>
             </div>
         </div>
@@ -424,18 +464,18 @@ async function sendMessage() {
         document.getElementById('typingIndicator').style.display = 'none';
         addMessage(botResponse, 'bot');
         
-        updateApiStatus();
-        
     } catch (error) {
         console.error('API Error:', error);
         
         document.getElementById('typingIndicator').style.display = 'none';
         
         let errorMessage = '⚠️ **Error**\n\n';
-        if (error.message.includes('API key')) {
+        if (error.message.includes('API key') || error.message.includes('API_KEY_INVALID')) {
             errorMessage += 'Your API key is invalid. Please check your configuration.';
-        } else if (error.message.includes('quota')) {
+        } else if (error.message.includes('quota') || error.message.includes('exceeded')) {
             errorMessage += 'You have exceeded your API quota. Please try again later.';
+        } else if (error.message.includes('not found')) {
+            errorMessage += 'The model was not found. Trying alternative models...';
         } else {
             errorMessage += 'An error occurred. Please try again.';
         }
@@ -455,7 +495,7 @@ function addMessage(message, sender) {
     const messageDiv = document.createElement('div');
     messageDiv.className = `message ${sender}`;
     
-    // Format the message with better styling
+    // Format the message
     const formattedMessage = message
         .replace(/\n/g, '<br>')
         .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
@@ -478,20 +518,21 @@ async function testAvailableModels() {
     console.log('🔍 Testing available models...');
     
     try {
-        const listResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${GEMINI_API_KEY}`);
-        if (listResponse.ok) {
-            const data = await listResponse.json();
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${GEMINI_API_KEY}`);
+        if (response.ok) {
+            const data = await response.json();
             console.log('✅ Available models:');
             data.models.forEach(model => {
                 console.log(`  - ${model.name}`);
             });
+            return data.models;
         }
     } catch (error) {
         console.log('❌ Error testing models:', error);
     }
 }
 
-// Make test function available
+// Make test function available in console
 window.testAvailableModels = testAvailableModels;
 
 // Initial status update
