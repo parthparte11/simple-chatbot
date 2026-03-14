@@ -2,7 +2,7 @@
 // API CONFIGURATION - ADD YOUR GEMINI API KEY HERE
 // ============================================
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const GEMINI_API_KEY = 'YOUR_GEMINI_API_KEY';
 
 // Available Gemini Models
 const GEMINI_MODELS = {
