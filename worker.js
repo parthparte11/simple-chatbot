@@ -1,4 +1,10 @@
-// Simple Gemini Proxy for Cloudflare Workers
+// ============================================
+// CLOUDFLARE WORKER PROXY FOR GEMINI API
+// ============================================
+
+// 🔐 PASTE YOUR GEMINI API KEY HERE (only on Cloudflare)
+const GEMINI_API_KEY = 'AIzaSyC7gbuADJztSxyTU_lXfMDXmoPuxqEILqU'; // Your actual key
+
 export default {
   async fetch(request) {
     // Handle CORS preflight requests
@@ -21,9 +27,6 @@ export default {
       // Get the request body
       const body = await request.json();
       
-      // 🔐 PASTE YOUR GEMINI API KEY HERE
-      const GEMINI_API_KEY = 'AIzaSyBHpJuSsiW5oHLkW4mAlDHxW9fbt4ufKuQ';
-      
       // Forward to Gemini API
       const response = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
@@ -34,8 +37,10 @@ export default {
         }
       );
 
+      // Get the response
       const data = await response.json();
 
+      // Return with CORS headers
       return new Response(JSON.stringify(data), {
         headers: {
           'Content-Type': 'application/json',
