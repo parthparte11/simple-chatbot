@@ -10,14 +10,37 @@
     <!-- Home Page -->
     <div class="home-container" id="homePage">
         <div class="hero-section">
-            <h1>🤖 AI ChatBot</h1>
-            <p>hello, I'm your AI assistant!</p>
+            <h1>🤖 Multi-API AI ChatBot</h1>
+            <p>Intelligent conversations with automatic failover between multiple AI providers</p>
         </div>
         
         <div class="stats-container" id="apiStats">
             <!-- API stats will be dynamically inserted here -->
         </div>
         
+        <div class="features">
+            <div class="feature-card">
+                <div>🔄</div>
+                <h3>Auto Failover</h3>
+                <p>Automatically switches between APIs if one is unavailable</p>
+            </div>
+            <div class="feature-card">
+                <div>⚡</div>
+                <h3>Load Balancing</h3>
+                <p>Distributes requests across multiple providers</p>
+            </div>
+            <div class="feature-card">
+                <div>📊</div>
+                <h3>Real-time Status</h3>
+                <p>Monitor which API is currently active</p>
+            </div>
+            <div class="feature-card">
+                <div>🔒</div>
+                <h3>No Single Point of Failure</h3>
+                <p>Always available even if one API goes down</p>
+            </div>
+        </div>
+
         <button class="cta-button" id="startChatBtn">
             Start Chatting Now →
         </button>
@@ -38,7 +61,7 @@
         <div class="chat-messages" id="chatMessages">
             <div class="message bot">
                 <div class="message-content">
-                    👋 Hello! I'm your AI assistant.
+                    👋 Hello! I'm your AI assistant
                     What would you like to discuss today?
                 </div>
                 <div class="timestamp">Just now</div>
